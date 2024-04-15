@@ -48,7 +48,7 @@ class AbstractImageDataset(Dataset, ABC):
     extract_image_id_function: Callable[[str], str] = identity
     recursive_loading: bool = True
     use_cache: bool = False
-    cache_option: Optional[AllowedCacheOptions] = None
+    cache_option: Optional[AllowedCacheOptions] = field(default=None)
     
     @cache_option.validator
     def _cache_option_validator(self, attribute, value):
