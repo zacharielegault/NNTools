@@ -8,7 +8,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 import torch
 
-from nntools.dataset.abstract_image_dataset import AbstractImageDataset
 from nntools.utils.plotting import plot_images
 
 
@@ -23,7 +22,7 @@ def convert_dict_to_plottable(dict_arrays):
     return plotted_arrays
 
 class Viewer:
-    def __init__(self, dataset: AbstractImageDataset) -> None:
+    def __init__(self, dataset) -> None:
         self.d = dataset
 
     
