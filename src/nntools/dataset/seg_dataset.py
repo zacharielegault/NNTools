@@ -1,5 +1,5 @@
 import logging
-from typing import Callable, Optional, Union
+from typing import Callable, Optional, Union, Literal
 
 import cv2
 import numpy as np
@@ -36,7 +36,7 @@ class SegmentationDataset(AbstractImageDataset):
     def _use_masks_default(self):
         return self.mask_root is not None
 
-    filling_strategy: Union[NNOpt.FILL_DOWNSAMPLE, NNOpt.FILL_UPSAMPLE] = field(default=NNOpt.FILL_DOWNSAMPLE)
+    filling_strategy: Literal[NNOpt.FILL_DOWNSAMPLE, NNOpt.FILL_UPSAMPLE] = field(default=NNOpt.FILL_DOWNSAMPLE)
     binarize_mask: bool = field(default=False)
     n_classes: Optional[int] = field(default=None)
 
