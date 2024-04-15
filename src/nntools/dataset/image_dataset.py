@@ -1,6 +1,6 @@
 import logging
 from timeit import default_timer as timer
-from typing import Union
+from typing import Literal
 
 import numpy as np
 from attrs import define
@@ -13,7 +13,7 @@ from nntools.utils.misc import to_iterable
 
 @define
 class MultiImageDataset(AbstractImageDataset):
-    filling_strategy: Union[NNOpt.FILL_DOWNSAMPLE, NNOpt.FILL_UPSAMPLE] = NNOpt.FILL_DOWNSAMPLE
+    filling_strategy: Literal[NNOpt.FILL_DOWNSAMPLE, NNOpt.FILL_UPSAMPLE] = NNOpt.FILL_DOWNSAMPLE
 
     def list_files(self, recursive):
         if not isinstance(self.img_root, dict):
