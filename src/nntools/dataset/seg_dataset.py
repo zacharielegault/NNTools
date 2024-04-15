@@ -118,7 +118,7 @@ class SegmentationDataset(AbstractImageDataset):
                     self.gts[k] = gts_k
 
     def load_image(self, item: int):
-        inputs = super(SegmentationDataset, self).load_image(item)
+        inputs = super(SegmentationDataset, self).read_from_disk(item)
         actual_shape = inputs["image"].shape
         if self.use_masks:
             for k, file_list in self.gts.items():

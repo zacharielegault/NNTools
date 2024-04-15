@@ -101,7 +101,7 @@ class ClassificationDataset(AbstractImageDataset):
         super(ClassificationDataset, self).remap(old_key, new_key)
 
     def load_image(self, item):
-        inputs = super(ClassificationDataset, self).load_image(item)
+        inputs = super(ClassificationDataset, self).read_from_disk(item)
         for k, v in inputs.items():
             if v.ndim == 2:
                 inputs[k] = np.expand_dims(v, 2)

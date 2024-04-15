@@ -4,6 +4,17 @@ from functools import partial
 from typing import Any, Sequence
 
 
+def is_image(array):
+    if array.dtype == "uint8":
+
+        if array.ndim == 2:
+            return True
+        if array.ndim == 3:
+            if array.shape[2] in [1, 3, 4]:
+                return True
+
+    return False
+
 def to_iterable(param: Any, iterable_type: Sequence[Any] = list):
     if isinstance(param, dict):
         return param

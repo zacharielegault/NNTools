@@ -67,3 +67,9 @@ class ConcatDataset(torch.utils.data.ConcatDataset):
         else:
             for d in self.datasets:
                 d.__setattr__(key, value)
+
+    def __getattr__(self, item):
+        if item not in [
+            'init_cache', 'composer', 'get_class_count', 'multiply_size', 'datasets'
+        ]:
+            return [getattr(d, item) for d in self.datasets]

@@ -1,8 +1,5 @@
-import logging
-import multiprocessing as mp
 import os
 from abc import ABC, abstractmethod
-from multiprocessing import shared_memory
 from pathlib import Path
 from typing import Callable, Dict, List, Literal, Optional, Tuple, Union
 
@@ -12,6 +9,8 @@ import numpy as np
 from attrs import define, field
 from torch.utils.data import Dataset
 
+from nntools.dataset.cache.disk import DiskCache
+from nntools.dataset.cache.memory import MemoryCache
 from nntools.dataset.functional.geometry import pad, resize
 from nntools.dataset.viewer import Viewer
 from nntools.utils.const import NNOpt
@@ -97,14 +96,14 @@ class AbstractImageDataset(Dataset, ABC):
         self.ignore_keys = []
         self.img_filepath = {"image": []}
         self.gts = {}
-        self.shared_arrays = {}
-        self.cache_with_shared_array = True
-        self.shm = None
-        self.cache_initialized = False
-        self.cache_filled = False
-        self._is_first_process = False
         self.list_files(self.recursive_loading)
         self.viewer = Viewer(self)
+        if self.use_cache:
+            match self.cache_option:
+                case NNOpt.CACHE_DISK:
+                    self.cache = DiskCache(self)
+                case NNOpt.CACHE_MEMORY:
+                    self.cache = MemoryCache(self)
 
     def __len__(self):
         return int(self.multiplicative_size_factor * self.real_length)
@@ -133,7 +132,7 @@ class AbstractImageDataset(Dataset, ABC):
     def list_files(self, recursive):
         pass
 
-    def load_image(self, item: int):
+    def read_from_disk(self, item: int):
         inputs = {}
         for k, file_list in self.img_filepath.items():
             filepath = file_list[item]
@@ -162,110 +161,27 @@ class AbstractImageDataset(Dataset, ABC):
         self.multiplicative_size_factor = factor
 
     def __del__(self):
-        if self.use_cache and self.cache_initialized and self._is_first_process:
-            for shm in self.shms:
-                shm.close()
-            if self._is_first_process:
-                for shm in self.shms:
-                    shm.unlink()
-            self.cache_initialized = False
-            self._is_first_process = False
-
-    def init_cache(self):
-        self.use_cache = True
-        if self.cache_initialized:
-            return
-        if not self.auto_resize and not self.auto_pad:
-            logging.warning(
-                "You are using a cache with auto_resize and auto_pad set to False.\
-                    Make sure all your images are the same size"
-            )
-
-        arrays = self.load_image(0)  # Taking the first element
-        arrays = self.precompose_data(arrays)
-
-        shared_arrays = dict()
-        nb_samples = self.real_length
-        self.shms = []
-        # Keep reference to all shm avoid the call from the garbage collector which pointer to buffer error
-        if self.cache_with_shared_array:
-            try:
-                shm = shared_memory.SharedMemory(name=f"nntools_{self.id}_is_item_cached", size=nb_samples, create=True)
-                self._is_first_process = True
-            except FileExistsError:
-                shm = shared_memory.SharedMemory(
-                    name=f"nntools_{self.id}_is_item_cached", size=nb_samples, create=False
-                )
-                self._is_first_process = False
-
-            self.shms.append(shm)
-            self._cache_items = np.frombuffer(buffer=shm.buf, dtype=bool)
-            self._cache_items[:] = 0
-
-        for key, arr in arrays.items():
-            if not isinstance(arr, np.ndarray):
-                shared_arrays[key] = np.ndarray(nb_samples, dtype=type(arr))
-                continue
-
-            memory_shape = (nb_samples, *arr.shape)
-            if self.cache_with_shared_array:
-                try:
-                    shm = shared_memory.SharedMemory(
-                        name=f"nntools_{key}_{self.id}", size=arr.nbytes * nb_samples, create=True
-                    )
-                    logging.info(f"Creating shared memory, {mp.current_process().name}")
-                    logging.debug(f"nntools_{key}_{self.id}: size: {shm.buf.nbytes} ({memory_shape})")
-                except FileExistsError:
-                    shm = shared_memory.SharedMemory(
-                        name=f"nntools_{key}_{self.id}", size=arr.nbytes * nb_samples, create=False
-                    )
-                    logging.info(f"Assessing existing shared memory {mp.current_process().name}")
-
-                self.shms.append(shm)
-
-                shared_array = np.frombuffer(buffer=shm.buf, dtype=arr.dtype).reshape(memory_shape)
-
-                shared_array[:] = 0
-                # The initialization with 0 is not needed.
-                # However, it's a good way to check if the shared memory is correctly initialized
-                # It checks if there is enough space in dev/shm
-
-                shared_arrays[key] = shared_array
-            else:
-                shared_arrays[key] = np.zeros(memory_shape, dtype=arr.dtype)
-
-        self.shared_arrays = shared_arrays
-        self.cache_initialized = True
+        if self.use_cache:
+            del self.cache
 
     def load_array(self, item: int):
         if not self.use_cache:
-            data = self.load_image(item)
+            data = self.read_from_disk(item)
             return self.precompose_data(data)
         else:
-            if not self.cache_initialized:
-                self.init_cache()
-
-            if self._cache_items[item]:
-                return {k: v[item] for k, v in self.shared_arrays.items()}
-
-            arrays = self.load_image(item)
-            arrays = self.precompose_data(arrays)
-            for k, array in arrays.items():
-                if array.ndim == 2:
-                    self.shared_arrays[k][item, :, :] = array[:, :]
-                else:
-                    self.shared_arrays[k][item, :, :, :] = array[:, :, :]
-            self._cache_items[item] = True
-            return arrays
+            self.cache.init_cache()
+            return self.cache[item]
 
     def columns(self):
         return (self.img_filepath.keys(), self.gts.keys())
 
     def remap(self, old_key: str, new_key: str):
-        dicts = [self.img_filepath, self.gts, self.shared_arrays]
+        dicts = [self.img_filepath, self.gts]
         for d in dicts:
             if old_key in d.keys():
                 d[new_key] = d.pop(old_key)
+            if self.use_cache:
+                raise NotImplementedError("Remapping is not supported with cache")
 
     def filename(self, items: List[int], key: str = "image"):
         items = np.asarray(items)
@@ -274,16 +190,6 @@ class AbstractImageDataset(Dataset, ABC):
             return [os.path.basename(f) for f in filepaths]
         else:
             return os.path.basename(filepaths)
-
-    def get_class_count(self, load: bool = True, save: bool = True):
-        pass
-
-    def transpose_img(self, img: np.ndarray):
-        if img.ndim == 3:
-            img = img.transpose(2, 0, 1)
-        elif img.ndim == 2:
-            img = np.expand_dims(img, 0)
-        return img
 
     def subset(self, indices: List[int]):
         for k, files in self.img_filepath.items():
@@ -313,10 +219,10 @@ class AbstractImageDataset(Dataset, ABC):
                     outputs[k] = v
             else:
                 outputs["tag"] = self.tag
-        outputs = self.filter_data(outputs)
+        outputs = self.filter_keys(outputs)
         return outputs
 
-    def filter_data(self, datadict: Dict[str, np.ndarray]):
+    def filter_keys(self, datadict: Dict[str, np.ndarray]):
         list_keys = list(datadict.keys())
         filtered_dict = {}
         for k in list_keys:
