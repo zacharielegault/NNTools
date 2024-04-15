@@ -108,3 +108,15 @@ class ClassificationDataset(AbstractImageDataset):
         for k in self.gts.keys():
             inputs[k] = self.gts[k][item]
         return inputs
+
+    def filter_classes(self, classes: List[int]):
+        if isinstance(classes, int):
+            classes = [classes]
+
+        for k in self.gts.keys():
+            all_classes = np.unique(self.gts[k])
+            classes_to_keep = np.setdiff1d(all_classes, classes)
+            kept_indices = np.isin(self.gts[k], classes_to_keep)
+            self.img_filepath["image"] = self.img_filepath["image"][kept_indices]
+            for k in self.gts.keys():
+                self.gts[k] = self.gts[k][kept_indices]
