@@ -1,20 +1,19 @@
 import logging
 from timeit import default_timer as timer
-from typing import Literal
+from typing import Union
 
 import numpy as np
 from attrs import define
 
-from nntools import MISSING_DATA_FLAG, NN_FILL_DOWNSAMPLE, NN_FILL_UPSAMPLE
 from nntools.dataset.abstract_image_dataset import AbstractImageDataset
-from nntools.dataset.utils import list_files_in_folder
-from nntools.utils.io import path_leaf
+from nntools.utils.const import NNOpt
+from nntools.utils.io import list_files_in_folder, path_leaf
 from nntools.utils.misc import to_iterable
 
 
 @define
 class MultiImageDataset(AbstractImageDataset):
-    filling_strategy: Literal["NN_FILL_DOWNSAMPLE", "NN_FILL_UPSAMPLE"] = NN_FILL_DOWNSAMPLE
+    filling_strategy: Union[NNOpt.FILL_DOWNSAMPLE, NNOpt.FILL_UPSAMPLE] = NNOpt.FILL_DOWNSAMPLE
 
     def list_files(self, recursive):
         if not isinstance(self.img_root, dict):
@@ -61,7 +60,7 @@ class MultiImageDataset(AbstractImageDataset):
             logging.debug(f"Number of files in intersection dataset: {len(intersection_ids)}")
             end = timer()
             logging.debug(f"Finding common files took {end - start}")
-            if self.filling_strategy == NN_FILL_DOWNSAMPLE or all_equal:
+            if self.filling_strategy == NNOpt.FILL_DOWNSAMPLE or all_equal:
                 start = timer()
                 # We only keep the intersection of the files
                 if not all_equal:
@@ -72,7 +71,7 @@ class MultiImageDataset(AbstractImageDataset):
                 end = timer()
                 logging.debug(f"Downsampling number of files took {end - start}")
 
-            elif self.filling_strategy == NN_FILL_UPSAMPLE and not all_equal:
+            elif self.filling_strategy == NNOpt.FILL_UPSAMPLE and not all_equal:
                 start = timer()
                 union_ids = np.asarray(set.union(*map(set, list(imgs_ids.values)))).sort()
 
@@ -80,16 +79,16 @@ class MultiImageDataset(AbstractImageDataset):
                     temps_ids = np.isin(v, union_ids)
                     img_filepath = np.zeros(len(union_ids), dtype=v.dtype)
                     img_filepath[temps_ids] = self.img_filepath[k]
-                    img_filepath[~temps_ids] = MISSING_DATA_FLAG
+                    img_filepath[~temps_ids] = NNOpt.MISSING_DATA_FLAG
                     self.img_filepath[k] = img_filepath
 
                 end = timer()
                 logging.debug(f"Upsampling number of files took {end - start}")
 
     def __len__(self):
-        if self.filling_strategy == NN_FILL_DOWNSAMPLE:
+        if self.filling_strategy == NNOpt.FILL_DOWNSAMPLE:
             return min([len(filepaths) for filepaths in self.img_filepath.values()])
-        elif self.filling_strategy == NN_FILL_UPSAMPLE:
+        elif self.filling_strategy == NNOpt.FILL_UPSAMPLE:
             return max([len(filepaths) for filepaths in self.img_filepath.values()])
 
 

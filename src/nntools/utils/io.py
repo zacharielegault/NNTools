@@ -4,6 +4,8 @@ import cv2
 import torch
 import yaml
 
+from nntools.utils.const import supportedExtensions
+
 
 def read_image(filepath, flag=None):
     if flag is None:
@@ -80,3 +82,15 @@ def jit_load(project_folder, experiment, run_name, run_id, filename=None, filter
 
     model.load(path, load_most_recent=filename is None, filtername=filtername)
     return model
+
+def list_files_in_folder(folder, recursive=True):
+    files = []
+    if recursive:
+        for dirpath, dirnames, filenames in os.walk(folder):
+            for f in filenames:
+                if os.path.splitext(f)[1] in supportedExtensions:
+                    files.append(os.path.join(dirpath, f))
+    else:
+        files = [os.path.join(folder, f) for f in os.listdir(folder) if os.path.splitext(f)[1] in supportedExtensions]
+
+    return files

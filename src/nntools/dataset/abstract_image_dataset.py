@@ -1,5 +1,4 @@
 import logging
-import math
 import multiprocessing as mp
 import os
 from abc import ABC, abstractmethod
@@ -13,22 +12,24 @@ import numpy as np
 from attrs import define, field
 from torch.utils.data import Dataset
 
-from nntools import MISSING_DATA_FLAG, NN_FILL_UPSAMPLE
-from nntools.dataset.image_tools import pad, resize
-from nntools.dataset.utils import convert_dict_to_plottable
+from nntools.dataset.functional.geometry import pad, resize
+from nntools.dataset.viewer import Viewer
+from nntools.utils.const import NNOpt
 from nntools.utils.io import read_image
 from nntools.utils.misc import identity, to_iterable
-from nntools.utils.plotting import plot_images
 
-from .tools import Composition
+from .composer import Composition
 
 plt.rcParams["image.cmap"] = "gray"
 
 
 AllowedImreadFlags = Literal["cv2.IMREAD_UNCHANGED", "cv2.IMREAD_GRAYSCALE", "cv2.IMREAD_COLOR"]
-AlloweInterpolationFlags = Literal[
+
+AllowedInterpolationFlags = Literal[
     "cv2.INTER_NEAREST", "cv2.INTER_LINEAR", "cv2.INTER_CUBIC", "cv2.INTER_AREA", "cv2.INTER_LANCZOS4"
 ]
+
+AllowedCacheOptions = Literal[NNOpt.CACHE_DISK, NNOpt.CACHE_MEMORY]
 
 
 def shape_converter(shape: Union[int, Tuple[int, int], None]) -> Optional[Tuple[int, int]]:
@@ -47,6 +48,13 @@ class AbstractImageDataset(Dataset, ABC):
     extract_image_id_function: Callable[[str], str] = identity
     recursive_loading: bool = True
     use_cache: bool = False
+    cache_option: Optional[AllowedCacheOptions] = None
+    
+    @cache_option.validator
+    def _cache_option_validator(self, attribute, value):
+        if self.use_cache and value is None:
+            raise ValueError("cache_option cannot be None if use_cache is True")
+        
     flag: AllowedImreadFlags = cv2.IMREAD_UNCHANGED
     return_indices: bool = False
     cmap_name: str = "jet_r"
@@ -54,7 +62,7 @@ class AbstractImageDataset(Dataset, ABC):
     return_tag: bool = False
     id: str = ""
     tag: Optional[Union[str, List[str]]] = None
-    interpolation_flag: AlloweInterpolationFlags = cv2.INTER_LINEAR
+    interpolation_flag: AllowedInterpolationFlags = cv2.INTER_LINEAR
 
     auto_pad: bool = field()
 
@@ -96,6 +104,7 @@ class AbstractImageDataset(Dataset, ABC):
         self.cache_filled = False
         self._is_first_process = False
         self.list_files(self.recursive_loading)
+        self.viewer = Viewer(self)
 
     def __len__(self):
         return int(self.multiplicative_size_factor * self.real_length)
@@ -128,7 +137,7 @@ class AbstractImageDataset(Dataset, ABC):
         inputs = {}
         for k, file_list in self.img_filepath.items():
             filepath = file_list[item]
-            if filepath == MISSING_DATA_FLAG and self.filling_strategy == NN_FILL_UPSAMPLE:
+            if filepath == NNOpt.MISSING_DATA_FLAG and self.filling_strategy == NNOpt.FILL_UPSAMPLE:
                 img = np.zeros(self.shape, dtype=np.uint8)
             else:
                 img = read_image(filepath, flag=self.flag)
@@ -289,6 +298,7 @@ class AbstractImageDataset(Dataset, ABC):
             index = int(index % self.real_length)
 
         inputs = self.load_array(index)
+
         if self.composer:
             outputs = self.composer.postcache_call(**inputs)
         else:
@@ -321,9 +331,7 @@ class AbstractImageDataset(Dataset, ABC):
         self.ignore_keys = []
 
     def plot(self, item: int, classes: Optional[List[str]] = None, fig_size: int = 1):
-        arrays = self.__getitem__(item, return_indices=False)
-        arrays = convert_dict_to_plottable(arrays)
-        plot_images(arrays, self.cmap_name, classes=classes, fig_size=fig_size)
+        self.viewer.plot(item, classes, fig_size)
 
     def get_mosaic(
         self,
@@ -339,92 +347,6 @@ class AbstractImageDataset(Dataset, ABC):
         n_col: Optional[int] = None,
         n_classes: Optional[int] = None,
     ):
-        if indexes is None:
-            if shuffle:
-                indexes = np.random.randint(0, len(self), n_items)
-            else:
-                indexes = np.arange(n_items)
-
-        ref_dict = self.__getitem__(0, return_indices=False, return_tag=False)
-        ref_dict = convert_dict_to_plottable(ref_dict)
-        count_images = 0
-        for k, v in ref_dict.items():
-            if isinstance(v, np.ndarray) and not np.isscalar(v):
-                count_images += 1
-        if n_row is None and n_col is None:
-            n_row = math.ceil(math.sqrt(n_items))
-            n_col = math.ceil(n_items / n_row)
-        if n_row * n_col < n_items:
-            logging.warning("With %i columns, %i row(s), only %i items can be plotted" % (n_col, n_row, n_row * n_col))
-            n_items = n_row * n_col
-        pad = 50 if add_labels else 0
-        cols = []
-
-        for r in range(n_row):
-            row = []
-            for c in range(n_col):
-                i = n_row * c + r
-                if i >= n_items:
-                    for n in range(count_images):
-                        tmp = np.zeros((resolution[0] + pad, resolution[1], 3))
-                        row.append(tmp)
-                    continue
-                index = indexes[i]
-                data = self.__getitem__(index, return_indices=False, return_tag=False)
-                data = convert_dict_to_plottable(data)
-
-                for k, v in data.items():
-                    if v.ndim == 3 and v.shape[-1] != 3:
-                        v_tmp = np.argmax(v, axis=-1) + 1
-                        v_tmp[v.max(axis=-1) == 0] = 0
-                        v = v_tmp
-                    if v.ndim == 3:
-                        v = (v - v.min()) / (v.max() - v.min())
-                    if v.ndim == 2:
-                        n_classes = np.max(v) + 1 if n_classes is None else n_classes
-                        if n_classes == 1:
-                            n_classes = 2
-                        cmap = plt.get_cmap(self.cmap_name, n_classes)
-                        v = cmap(v)[:, :, :3]
-                    if v.shape:
-                        v = cv2.resize(v, resolution, cv2.INTER_NEAREST_EXACT)
-                    if add_labels and v.shape:
-                        v = np.pad(v, ((pad, 0), (0, 0), (0, 0)))
-                        if k in self.gts:
-                            text = self.gts[k][index]
-                        elif k in self.img_filepath:
-                            text = self.img_filepath[k][index]
-                        else:
-                            text = ""
-                        text = os.path.basename(text)
-                        font = cv2.FONT_HERSHEY_PLAIN
-                        fontScale = 1.75
-                        fontColor = (255, 255, 255)
-                        lineType = 2
-
-                        textsize = cv2.getTextSize(text, font, fontScale, lineType)[0]
-                        textX = (v.shape[1] - textsize[0]) // 2
-                        textY = (textsize[1] + pad) // 2
-
-                        bottomLeftCornerOfText = textX, textY
-                        cv2.putText(v, text, bottomLeftCornerOfText, font, fontScale, fontColor, lineType)
-                    if v.shape:
-                        row.append(v)
-
-            rows = np.hstack(row)
-
-            cols.append(rows)
-
-        mosaic = np.vstack(cols)
-        if show:
-            fig, ax = plt.subplots(1, 1)
-            ax.imshow(mosaic)
-            fig.set_size_inches(fig_size * 5 * count_images * n_col, 5 * n_row * fig_size)
-            plt.axis("off")
-            plt.tight_layout()
-            fig.show()
-        if save:
-            assert isinstance(save, str)
-            cv2.imwrite(save, (mosaic * 255)[:, :, ::-1])
-
-        return mosaic
+        return self.get_mosaic(
+            n_items, shuffle, indexes, resolution, show, fig_size, save, add_labels, n_row, n_col, n_classes
+        )

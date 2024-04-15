@@ -5,11 +5,11 @@ import cv2
 import numpy as np
 from attrs import define, field
 
-from nntools import MISSING_DATA_FLAG, NN_FILL_DOWNSAMPLE, NN_FILL_UPSAMPLE
 from nntools.dataset.abstract_image_dataset import AbstractImageDataset
-from nntools.dataset.image_tools import resize
-from nntools.dataset.utils import get_segmentation_class_count, list_files_in_folder
-from nntools.utils.io import path_leaf, read_image
+from nntools.dataset.functional.geometry import resize
+from nntools.dataset.utils.balance import get_segmentation_class_count
+from nntools.utils.const import NNOpt
+from nntools.utils.io import list_files_in_folder, path_leaf, read_image
 from nntools.utils.misc import to_iterable
 
 
@@ -36,7 +36,7 @@ class SegmentationDataset(AbstractImageDataset):
     def _use_masks_default(self):
         return self.mask_root is not None
 
-    filling_strategy: str = field(default=NN_FILL_UPSAMPLE)
+    filling_strategy: Union[NNOpt.FILL_DOWNSAMPLE, NNOpt.FILL_UPSAMPLE] = field(default=NNOpt.FILL_DOWNSAMPLE)
     binarize_mask: bool = field(default=False)
     n_classes: Optional[int] = field(default=None)
 
@@ -95,7 +95,7 @@ class SegmentationDataset(AbstractImageDataset):
                     logging.debug(f"List of files in {k}: {gts_ids[k]}")
                 logging.debug(f"List of files in image: {img_ids}")
 
-            if self.filling_strategy == NN_FILL_DOWNSAMPLE or all_equal:
+            if self.filling_strategy == NNOpt.FILL_DOWNSAMPLE or all_equal:
                 # We only keep the intersection of the files
                 if not all_equal:
                     logging.warning("Downsampling the dataset to size %i" % min(list_lengths))
@@ -105,7 +105,7 @@ class SegmentationDataset(AbstractImageDataset):
                 for k in self.gts.keys():
                     self.gts[k] = self.gts[k][np.isin(gts_ids[k], intersection_ids)]
 
-            elif self.filling_strategy == NN_FILL_UPSAMPLE and not all_equal:
+            elif self.filling_strategy == NNOpt.FILL_UPSAMPLE and not all_equal:
                 if len(img_ids) < max(list_lengths):
                     raise ValueError("Upsampling is not possible if the dataset is smaller than the biggest folder")
 
@@ -114,7 +114,7 @@ class SegmentationDataset(AbstractImageDataset):
                     temps_ids = np.isin(img_ids, gts_ids[k])
                     gts_k = np.zeros(len(img_ids), dtype=values.dtype)
                     gts_k[temps_ids] = values
-                    gts_k[~temps_ids] = MISSING_DATA_FLAG
+                    gts_k[~temps_ids] = NNOpt.MISSING_DATA_FLAG
                     self.gts[k] = gts_k
 
     def load_image(self, item: int):
@@ -123,7 +123,7 @@ class SegmentationDataset(AbstractImageDataset):
         if self.use_masks:
             for k, file_list in self.gts.items():
                 filepath = file_list[item]
-                if filepath == MISSING_DATA_FLAG:
+                if filepath == NNOpt.MISSING_DATA_FLAG:
                     mask = np.zeros(actual_shape[:-1], dtype=np.uint8)
                 else:
                     mask = read_image(filepath, cv2.IMREAD_GRAYSCALE)

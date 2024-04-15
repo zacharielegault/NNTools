@@ -5,8 +5,7 @@ import pandas
 from attrs import define, field
 
 from nntools.dataset.abstract_image_dataset import AbstractImageDataset
-from nntools.dataset.utils import list_files_in_folder
-from nntools.utils.io import path_folder_leaf, path_leaf
+from nntools.utils.io import list_files_in_folder, path_folder_leaf, path_leaf
 from nntools.utils.misc import to_iterable
 
 
