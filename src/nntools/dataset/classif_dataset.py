@@ -100,7 +100,7 @@ class ClassificationDataset(AbstractImageDataset):
         self.gt_column[self.gt_column.index(old_key)] = new_key
         super(ClassificationDataset, self).remap(old_key, new_key)
 
-    def load_image(self, item):
+    def read_from_disk(self, item):
         inputs = super(ClassificationDataset, self).read_from_disk(item)
         for k, v in inputs.items():
             if v.ndim == 2:
@@ -120,3 +120,6 @@ class ClassificationDataset(AbstractImageDataset):
             self.img_filepath["image"] = self.img_filepath["image"][kept_indices]
             for k in self.gts.keys():
                 self.gts[k] = self.gts[k][kept_indices]
+        
+        if self.use_cache:
+            self.cache.d = self

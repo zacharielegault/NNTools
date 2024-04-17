@@ -60,6 +60,10 @@ class Viewer:
         if n_row is None and n_col is None:
             n_row = math.ceil(math.sqrt(n_items))
             n_col = math.ceil(n_items / n_row)
+        elif n_row is None:
+            n_row = math.ceil(n_items / n_col)
+        elif n_col is None:
+            n_col = math.ceil(n_items / n_row)
         if n_row * n_col < n_items:
             logging.warning("With %i columns, %i row(s), only %i items can be plotted" % (n_col, n_row, n_row * n_col))
             n_items = n_row * n_col
@@ -96,15 +100,15 @@ class Viewer:
                         v = cv2.resize(v, resolution, cv2.INTER_NEAREST_EXACT)
                     if add_labels and v.shape:
                         v = np.pad(v, ((pad, 0), (0, 0), (0, 0)))
-                        if k in self.d.gts:
-                            text = self.d.gts[k][index]
-                        elif k in self.d.img_filepath:
-                            text = self.d.img_filepath[k][index]
-                        else:
-                            text = ""
+                        text = ""
+                        for k in data.keys():
+                            if k in self.d.gts:
+                                text += " " + str(self.d.gts[k][index])
+                            elif k in self.d.img_filepath:
+                                text += " " + os.path.basename(self.d.img_filepath[k][index])
                         text = os.path.basename(text)
-                        font = cv2.FONT_HERSHEY_PLAIN
-                        fontScale = 1.75
+                        font = cv2.FONT_HERSHEY_SIMPLEX
+                        fontScale = 1.
                         fontColor = (255, 255, 255)
                         lineType = 2
 

@@ -117,7 +117,7 @@ class SegmentationDataset(AbstractImageDataset):
                     gts_k[~temps_ids] = NNOpt.MISSING_DATA_FLAG
                     self.gts[k] = gts_k
 
-    def load_image(self, item: int):
+    def read_from_disk(self, item: int):
         inputs = super(SegmentationDataset, self).read_from_disk(item)
         actual_shape = inputs["image"].shape
         if self.use_masks:

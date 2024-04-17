@@ -1,5 +1,4 @@
 
-
 import copy
 
 from torch import default_generator, randperm
@@ -16,14 +15,21 @@ def random_split(dataset, lengths, generator=default_generator):
 
     indices = randperm(sum(lengths), generator=generator).tolist()
     datasets = []
-    for offset, length in zip(_accumulate(lengths), lengths):
+    for split, (offset, length) in enumerate(zip(_accumulate(lengths), lengths)):
         d = copy.deepcopy(dataset)
         # We need to explicit call the attrs post init callback since deepcopy does not call it
-        d.__attrs_post_init__()
+        # d.__attrs_post_init__()
         # We also need to explicitely copy the composer
+        d.img_filepath = copy.deepcopy(dataset.img_filepath)
+        d.gts = copy.deepcopy(dataset.gts)
         d.composer = copy.deepcopy(dataset.composer)
+        d.ignore_keys  = copy.deepcopy(dataset.ignore_keys)
         indx = indices[offset - length : offset]
         d.subset(indx)
-
+        d.id = d.id + f"_split_{split}"
+        if dataset.use_cache:
+            d.cache = copy.deepcopy(dataset.cache)
+            d.cache.d = d
+            
         datasets.append(d)
     return tuple(datasets)

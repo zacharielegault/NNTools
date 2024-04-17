@@ -1,1 +1,1 @@
-from .utils.const import *  # noqa: F403
+from nntools.utils.const import NNOpt

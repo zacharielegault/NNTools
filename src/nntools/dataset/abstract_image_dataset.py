@@ -90,13 +90,14 @@ class AbstractImageDataset(Dataset, ABC):
             raise ValueError("auto_resize cannot be True if shape is None")
 
     _precache_composer: Optional[Composition] = field(default=None)
-    _composer = None
+    _composer = None       
 
     def __attrs_post_init__(self):
         self.ignore_keys = []
         self.img_filepath = {"image": []}
         self.gts = {}
         self.list_files(self.recursive_loading)
+        self.ignore_keys = []
         self.viewer = Viewer(self)
         if self.use_cache:
             match self.cache_option:
@@ -114,11 +115,11 @@ class AbstractImageDataset(Dataset, ABC):
 
     @property
     def filenames(self):
-        return {k: [f.name for f in v] for k, v in self.img_filepath.items()}
+        return {k: [Path(f).name for f in v] for k, v in self.img_filepath.items()}
 
     @property
     def gt_filenames(self):
-        return {k: [f.name for f in v] for k, v in self.gts.items()}
+        return {k: [Path(f).name for f in v] for k, v in self.gts.items()}
 
     @property
     def composer(self):
@@ -180,8 +181,9 @@ class AbstractImageDataset(Dataset, ABC):
         for d in dicts:
             if old_key in d.keys():
                 d[new_key] = d.pop(old_key)
-            if self.use_cache:
-                raise NotImplementedError("Remapping is not supported with cache")
+        if self.use_cache:
+            if self.cache.is_initialized:
+                self.cache.remap(old_key, new_key)
 
     def filename(self, items: List[int], key: str = "image"):
         items = np.asarray(items)
@@ -253,6 +255,6 @@ class AbstractImageDataset(Dataset, ABC):
         n_col: Optional[int] = None,
         n_classes: Optional[int] = None,
     ):
-        return self.get_mosaic(
+        return self.viewer.get_mosaic(
             n_items, shuffle, indexes, resolution, show, fig_size, save, add_labels, n_row, n_col, n_classes
         )

@@ -16,6 +16,10 @@ def read_image(filepath, flag=None):
     else:
         return image
 
+def save_image(image, filepath):
+    if image.ndim == 3:
+        image = image[:, :, ::-1]
+    cv2.imwrite(filepath, image)
 
 def load_yaml(yaml_path):
     with open(yaml_path) as f:
