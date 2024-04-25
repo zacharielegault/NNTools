@@ -102,6 +102,8 @@ class AbstractImageDataset(Dataset, ABC):
         if self.use_cache:
             match self.cache_option:
                 case NNOpt.CACHE_DISK:
+                    if not self.id:
+                        raise ValueError("You must provide a dataset's id for the shared memory cache")
                     self.cache = DiskCache(self)
                 case NNOpt.CACHE_MEMORY:
                     self.cache = MemoryCache(self)

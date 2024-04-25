@@ -27,27 +27,39 @@ class CacheBullet:
 class Composition:
     def __init__(self):
         self.ops = []
-        self.deactivated = []
         self._index_bullet = 0
 
     def add(self, *funcs):
         for f in funcs:
-            self.ops.append(f)
+            self.ops.append({'f':f, 'active':True})
         return self
 
     def deactivate_op(self, index):
         if not isinstance(index, list):
             index = [index]
-        self.deactivated += index
-
+        for j, op in enumerate(self.ops):
+            if j in index:
+                op['active'] = False
+    
+    def reactivate_op(self, index):
+        if not isinstance(index, list):
+            index = [index]
+        for j, op in enumerate(self.ops):
+            if j in index:
+                op['active'] = True
+    
+    def reactivate_all(self):
+        for op in self.ops:
+            op['active'] = True
+    
     def __call__(self, **kwargs):
         batch_elements = kwargs
-        for i, op in enumerate(self.ops):
-            if i in self.deactivated:
+        for op in self.ops:
+            if not op['active']:
                 continue
-            if isinstance(op, CacheBullet):
+            if isinstance(op['f'], CacheBullet):
                 continue
-            batch_elements = op(**batch_elements)
+            batch_elements = op['f'](**batch_elements)
         return batch_elements
 
     def __lshift__(self, other):
@@ -57,12 +69,13 @@ class Composition:
         if not self.has_bullet_cache:
             return kwargs
         else:
-            for i, op in enumerate(self.ops):
-                if i in self.deactivated:
+            for op in self.ops:
+                if not op['active']:
                     continue
-                if i == self._index_bullet:
+                if isinstance(op['f'], CacheBullet):
                     break
-                kwargs = op(**kwargs)
+                kwargs = op['f'](**kwargs)
+                
             return kwargs
 
     def postcache_call(self, **kwargs):
@@ -70,16 +83,16 @@ class Composition:
             return self(**kwargs)
         else:
             for i, op in enumerate(self.ops):
-                if i <= self._index_bullet or i in self.deactivated:
+                if i <= self._index_bullet or not op['active']:
                     continue
                 else:
-                    kwargs = op(**kwargs)
+                    kwargs = op['f'](**kwargs)
             return kwargs
 
     @property
     def has_bullet_cache(self):
         for i, op in enumerate(self.ops):
-            if isinstance(op, CacheBullet):
+            if isinstance(op['f'], CacheBullet):
                 self._index_bullet = i
                 return True
         self._index_bullet = 0
@@ -88,7 +101,7 @@ class Composition:
     def __str__(self):
         output = ""
         for i, o in enumerate(self.ops):
-            output += "%i_" % i + str(o) + " STATUS: " + ("Active" if i not in self.deactivated else "Inactive") + " \n"
+            output += "%i_" % i + str(o['f']) + " STATUS: " + ("Active" if o['active'] else "Inactive") + " \n"
         return output
 
     def __repr__(self):

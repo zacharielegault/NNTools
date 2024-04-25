@@ -9,6 +9,8 @@ if TYPE_CHECKING:
 
 def concat_datasets_if_needed(datasets):
     if isinstance(datasets, list):
+        if len(datasets) == 0:
+            return None
         if len(datasets) > 1:
             dataset = ConcatDataset(datasets)
         else:
