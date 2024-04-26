@@ -27,7 +27,6 @@ dependencies = [
     "pandas",
     "torchvision",
     "opencv-python-headless",
-    "segmentation_models_pytorch",
     "bokeh",
 ]
 

@@ -34,7 +34,7 @@ class Composition:
             self.ops.append({'f':f, 'active':True})
         return self
 
-    def deactivate_op(self, index):
+    def deactivate_op(self, index): 
         if not isinstance(index, list):
             index = [index]
         for j, op in enumerate(self.ops):
