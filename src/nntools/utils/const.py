@@ -9,6 +9,6 @@ class NNOpt(Enum):
     FILL_UPSAMPLE = auto()
     MISSING_DATA_FLAG = auto()
     AUTO_INTERPRET_RGB_MASK = auto()
-    CACHE_DISK = auto()
-    CACHE_MEMORY = auto()
+    CACHE_DISK = 'disk'
+    CACHE_MEMORY = 'memory'
     
