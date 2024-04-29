@@ -9,17 +9,23 @@ from nntools.dataset.cache.abstract_cache import AbstractCache
 from nntools.utils.io import read_image, save_image
 from nntools.utils.misc import is_image
 
+class Metadata:
+    def __init__(self, cache_folder, is_image):
+        self.cache_folder = cache_folder
+        self.is_image = is_image
 
 class DiskCache(AbstractCache):
-    def __init__(self, dataset) -> None:
+    def __init__(self, dataset, cache_dir:Path='') -> None:
         super().__init__(dataset)
+        
         self.cache_folders = {}
         self.in_memory_items = []
         self.shms = []
         self.root_cache_folder = None
         self.needs_filling = False
-        self.cache_folder_metadata = namedtuple("Metadata", ["cache_folder", "is_image"])
-
+        self.cache_dir = cache_dir
+        
+        
     def init_cache(self) -> None:
         if self.is_initialized:
             return
@@ -37,7 +43,7 @@ class DiskCache(AbstractCache):
                 self.in_memory_items.append(k)
             else:
                 k_cache_folder = self.root_cache_folder / k
-                metadata = self.cache_folder_metadata(k_cache_folder, is_image(v))
+                metadata = Metadata(k_cache_folder, is_image(v))
                 self.cache_folders[k] = metadata
 
         self._cache_items[:] = False
@@ -109,7 +115,7 @@ class DiskCache(AbstractCache):
     def get_cache_folder(self) -> Path:
         root_img = Path(self.d.img_filepath["image"][0]).parent
         folder_name = root_img.name
-        cache_folder = root_img.parent / f".{folder_name}_cache" / self.d.id
+        cache_folder = root_img.parent / self.cache_dir / f".{folder_name}_cache" / self.d.id
         return cache_folder
 
     def remap(self, old_key: str, new_key: str):

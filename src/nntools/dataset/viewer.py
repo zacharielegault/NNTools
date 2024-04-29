@@ -47,7 +47,7 @@ class Viewer:
     ):
         if indexes is None:
             if shuffle:
-                indexes = np.random.randint(0, len(self), n_items)
+                indexes = np.random.randint(0, len(self.d), n_items)
             else:
                 indexes = np.arange(n_items)
 

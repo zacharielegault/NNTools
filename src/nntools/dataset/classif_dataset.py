@@ -73,18 +73,33 @@ class ClassificationDataset(AbstractImageDataset):
         return len(unique_labels)
 
     def match_df_with_images(self, df: pandas.DataFrame):
-        img_names = [self.extract_image_id_function(path_leaf(p)) for p in self.img_filepath["image"]]
-        if len(img_names) != len(df):
-            in_csv = np.isin(img_names, df.apply(lambda x: path_leaf(x[self.file_column]), axis=1))
-            self.img_filepath["image"] = self.img_filepath["image"][in_csv]
-            img_names = np.asarray(img_names)[in_csv]
+        img_names = np.array([self.extract_image_id_function(path_leaf(p)) for p in self.img_filepath["image"]])
+        df_img = np.array(df[self.file_column].map(lambda x: path_leaf(x)))
         
+        
+        if len(df_img) != len(img_names):
+            img_argsort = np.argsort(img_names)
+            df_argsort = np.argsort(df_img)
+                        
+            common = np.intersect1d(img_names, df_img)
+            common = np.sort(common) 
+            pos_img = np.searchsorted(img_names[img_argsort], common)
+            pos_df = np.searchsorted(df_img[df_argsort], common)
+            
+            img_indices = img_argsort[pos_img]
+            df_indices = df_argsort[pos_df]
+            
+            img_names = img_names[img_indices]
+            self.img_filepath["image"] = self.img_filepath["image"][img_indices]
+            df = df.iloc[df_indices]
+            
+
         argsort = np.argsort(img_names)
         self.img_filepath["image"] = self.img_filepath["image"][argsort]
         df.sort_values(self.file_column, inplace=True)
         for col in self.gt_column:
-            csv_gts = np.asarray(df[col])
-            self.gts[col] = csv_gts
+            df_gts = np.asarray(df[col])
+            self.gts[col] = df_gts
 
     def get_class_count(self, load=True, save=True):
         # Todo Add loading and saving of class counts

@@ -53,7 +53,9 @@ class AbstractImageDataset(Dataset, ABC):
     def _cache_option_validator(self, attribute, value):
         if self.use_cache and value is None:
             raise ValueError("cache_option cannot be None if use_cache is True")
-        
+    
+    cache_dir: Optional[Path] = field(default='')
+            
     flag: AllowedImreadFlags = cv2.IMREAD_UNCHANGED
     return_indices: bool = False
     cmap_name: str = "jet_r"
@@ -102,10 +104,10 @@ class AbstractImageDataset(Dataset, ABC):
         if self.use_cache:
             match self.cache_option:
                 case NNOpt.CACHE_DISK:
+                    self.cache = DiskCache(self, self.cache_dir)
+                case NNOpt.CACHE_MEMORY:
                     if not self.id:
                         raise ValueError("You must provide a dataset's id for the shared memory cache")
-                    self.cache = DiskCache(self)
-                case NNOpt.CACHE_MEMORY:
                     self.cache = MemoryCache(self)
 
     def __len__(self):
@@ -162,10 +164,6 @@ class AbstractImageDataset(Dataset, ABC):
 
     def multiply_size(self, factor: float):
         self.multiplicative_size_factor = factor
-
-    def __del__(self):
-        if self.use_cache:
-            del self.cache
 
     def load_array(self, item: int):
         if not self.use_cache:
