@@ -47,15 +47,12 @@ class AbstractImageDataset(Dataset, ABC):
     extract_image_id_function: Callable[[str], str] = identity
     recursive_loading: bool = True
     use_cache: bool = False
-    cache_option: Optional[AllowedCacheOptions] = field(default=None)
-    
+    cache_option: Optional[AllowedCacheOptions] = field(default=None, converter=NNOpt)
     @cache_option.validator
     def _cache_option_validator(self, attribute, value):
         if self.use_cache and value is None:
             raise ValueError("cache_option cannot be None if use_cache is True")
-        
-        self.cache_option = NNOpt(value)
-    
+            
     cache_dir: Optional[Path] = field(default='')
             
     flag: AllowedImreadFlags = cv2.IMREAD_UNCHANGED
