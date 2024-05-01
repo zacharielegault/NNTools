@@ -1,8 +1,7 @@
 
 import copy
-
+import numpy as np
 from torch import default_generator, randperm
-from torch._utils import _accumulate
 
 
 def random_split(dataset, lengths, generator=default_generator):
@@ -15,7 +14,7 @@ def random_split(dataset, lengths, generator=default_generator):
 
     indices = randperm(sum(lengths), generator=generator).tolist()
     datasets = []
-    for split, (offset, length) in enumerate(zip(_accumulate(lengths), lengths)):
+    for split, (offset, length) in enumerate(zip(np.cumsum(lengths), lengths)):
         d = copy.deepcopy(dataset)
         # We need to explicit call the attrs post init callback since deepcopy does not call it
         # d.__attrs_post_init__()
