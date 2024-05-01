@@ -5,8 +5,8 @@ supportedExtensions.update({ext.upper() for ext in supportedExtensions})
 
 
 class NNOpt(Enum):
-    FILL_DOWNSAMPLE = auto()
-    FILL_UPSAMPLE = auto()
+    FILL_DOWNSAMPLE = "downsample"
+    FILL_UPSAMPLE = "upsample"
     MISSING_DATA_FLAG = auto()
     AUTO_INTERPRET_RGB_MASK = auto()
     CACHE_DISK = 'disk'

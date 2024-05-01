@@ -37,6 +37,11 @@ class SegmentationDataset(AbstractImageDataset):
         return self.mask_root is not None
 
     filling_strategy: Literal[NNOpt.FILL_DOWNSAMPLE, NNOpt.FILL_UPSAMPLE] = field(default=NNOpt.FILL_DOWNSAMPLE)
+    @filling_strategy.validator
+    def _filling_strategy_validator(self, attribute, value):
+        if isinstance(value, str):
+            self.filling_strategy = NNOpt(value.lower())
+                    
     binarize_mask: bool = field(default=False)
     n_classes: Optional[int] = field(default=None)
 

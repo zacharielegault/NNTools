@@ -19,7 +19,7 @@ class ClassificationDataset(AbstractImageDataset):
     @label_per_folder.default
     def _label_per_folder_default(self):
         return self.label_filepath is None and self.label_dataframe is None
-
+    
     file_column: str = "image"
     gt_column: Union[str, List[str]] = field(default="label", converter=to_iterable)
 

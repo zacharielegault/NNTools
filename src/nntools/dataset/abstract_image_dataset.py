@@ -53,6 +53,8 @@ class AbstractImageDataset(Dataset, ABC):
     def _cache_option_validator(self, attribute, value):
         if self.use_cache and value is None:
             raise ValueError("cache_option cannot be None if use_cache is True")
+        
+        self.cache_option = NNOpt(value)
     
     cache_dir: Optional[Path] = field(default='')
             
