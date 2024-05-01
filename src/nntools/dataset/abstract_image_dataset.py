@@ -36,7 +36,7 @@ def shape_converter(shape: Union[int, Tuple[int, int], None]) -> Optional[Tuple[
         return None
     if isinstance(shape, int):
         return (shape, shape)
-    return shape
+    return tuple(shape)
 
 
 @define
