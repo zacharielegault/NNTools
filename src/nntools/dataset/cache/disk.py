@@ -34,8 +34,9 @@ class DiskCache(AbstractCache):
 
         arrays = self.d.read_from_disk(0)  # Taking the first element
         arrays = self.d.precompose_data(arrays)
-        self._cache_items = np.zeros(self.nb_samples, dtype=bool)
-
+        
+        self.init_non_shared_items_tracking()
+        
         for k, v in arrays.items():
             if not isinstance(v, np.ndarray):
                 assert k in self.d.gts, f"Key {k} not found in dataset ground truths. \
@@ -46,7 +47,7 @@ class DiskCache(AbstractCache):
                 metadata = Metadata(k_cache_folder, is_image(v))
                 self.cache_folders[k] = metadata
 
-        self._cache_items[:] = False
+        self.is_item_cached[:] = False
         for k, v in self.cache_folders.items():
             v.cache_folder.mkdir(parents=True, exist_ok=True)
             logging.info(f"Creating cache folder {self.root_cache_folder}.")
@@ -54,7 +55,7 @@ class DiskCache(AbstractCache):
         self.needs_filling = self.check_if_filling_is_needed()
         self.is_initialized = True
         if not self.needs_filling:
-            self._cache_items[:] = True
+            self.is_item_cached[:] = True
 
     def check_if_filling_is_needed(self):
         needed = []
@@ -64,9 +65,7 @@ class DiskCache(AbstractCache):
         return any(needed)
 
     def __getitem__(self, item):
-        if not self._cache_items[item]:
-            self._cache_items[item] = self.check_cache(item)
-        if self._cache_items[item]:
+        if self.is_item_cached[item]:
             return self.get_cached_item(item)
         else:
             return self.cache_item(item)
@@ -93,6 +92,8 @@ class DiskCache(AbstractCache):
         return True
 
     def cache_item(self, item):
+        if self.check_cache(item):
+            return self.get_cached_item(item)
         arrays = self.d.read_from_disk(item)
         arrays = self.d.precompose_data(arrays)
         for k, v in arrays.items():
@@ -101,7 +102,7 @@ class DiskCache(AbstractCache):
             else:
                 self.cache_to_disk(k, v, item)
 
-        self._cache_items[item] = True
+        self.is_item_cached[item] = True
         return arrays
 
     def cache_to_disk(self, key, value, item):

@@ -2,7 +2,7 @@
 import copy
 import numpy as np
 from torch import default_generator, randperm
-
+from nntools.dataset.viewer import Viewer
 
 def random_split(dataset, lengths, generator=default_generator):
     if sum(lengths) == 1:
@@ -23,6 +23,7 @@ def random_split(dataset, lengths, generator=default_generator):
         d.gts = copy.deepcopy(dataset.gts)
         d.composer = copy.deepcopy(dataset.composer)
         d.ignore_keys  = copy.deepcopy(dataset.ignore_keys)
+        d.viewer = Viewer(d)
         indx = indices[offset - length : offset]
         d.subset(indx)
         d.id = d.id + f"_split_{split}"

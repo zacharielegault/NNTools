@@ -12,23 +12,26 @@ class AbstractCache:
         self.shms = []
         self._num_workers = 12
         self._batch_size = 32
+        self.is_item_cached = None
 
     def init_shared_items_tracking(self):
-        try:  # This is the wrong way to handle to do, we should check if we are at rank 0
+        cached_items = np.zeros(self.nb_samples, dtype=bool)
+        try:
             shm = shared_memory.SharedMemory(
-                name=f"nntools_{self.id}_is_item_cached", size=self.nb_samples, create=True
+                name=f"nntools_{self.id}_is_item_cached", size=cached_items.nbytes, create=True
             )
-            self._is_first_process = True
+            buffer = np.frombuffer(buffer=shm.buf, dtype=bool)
+            buffer[:] = 0
         except FileExistsError:
             shm = shared_memory.SharedMemory(
-                name=f"nntools_{self.id}_is_item_cached", size=self.nb_samples, create=False
+                name=f"nntools_{self.id}_is_item_cached", create=False
             )
-            self._is_first_process = False
 
         self.shms.append(shm)
-        self._cache_items = np.frombuffer(buffer=shm.buf, dtype=bool)
-        self._cache_items[:] = 0
+        self.is_item_cached = np.frombuffer(buffer=shm.buf, dtype=bool)
     
+    def init_non_shared_items_tracking(self):
+        self.is_item_cached = np.zeros(self.nb_samples, dtype=bool)
     @abstractmethod
     def remap(self, old_key: str, new_key: str):
         pass
