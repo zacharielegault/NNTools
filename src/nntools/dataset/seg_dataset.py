@@ -115,7 +115,7 @@ class SegmentationDataset(AbstractImageDataset):
                     temps_ids = np.isin(img_ids, gts_ids[k])
                     gts_k = np.zeros(len(img_ids), dtype=values.dtype)
                     gts_k[temps_ids] = values
-                    gts_k[~temps_ids] = NNOpt.MISSING_DATA_FLAG
+                    gts_k[~temps_ids] = NNOpt.MISSING_DATA_FLAG.value
                     self.gts[k] = gts_k
 
     def read_from_disk(self, item: int):
@@ -124,7 +124,7 @@ class SegmentationDataset(AbstractImageDataset):
         if self.use_masks:
             for k, file_list in self.gts.items():
                 filepath = file_list[item]
-                if filepath == NNOpt.MISSING_DATA_FLAG:
+                if filepath == NNOpt.MISSING_DATA_FLAG.value:
                     mask = np.zeros(actual_shape[:-1], dtype=np.uint8)
                 else:
                     mask = read_image(filepath, cv2.IMREAD_GRAYSCALE)
