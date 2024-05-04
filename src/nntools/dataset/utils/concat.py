@@ -24,7 +24,7 @@ class ConcatDataset(torch.utils.data.ConcatDataset):
     def __init__(self, *args, **kwargs):
         self.post_init = False
         self.datasets: list[AbstractImageDataset]
-        super(ConcatDataset, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
         self.post_init = True
 
     def plot(self, idx, **kwargs):
@@ -63,9 +63,9 @@ class ConcatDataset(torch.utils.data.ConcatDataset):
 
     def __setattr__(self, key, value):
         if key == "post_init":
-            super(ConcatDataset, self).__setattr__(key, value)
+            super().__setattr__(key, value)
         if hasattr(self, key) or not self.post_init:
-            super(ConcatDataset, self).__setattr__(key, value)
+            super().__setattr__(key, value)
         else:
             for d in self.datasets:
                 d.__setattr__(key, value)
