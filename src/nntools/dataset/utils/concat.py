@@ -53,6 +53,11 @@ class ConcatDataset(torch.utils.data.ConcatDataset):
     def composer(self):
         return [d.composer for d in self.datasets]
 
+    @composer.setter
+    def composer(self, other):
+        for d in self.datasets:
+            d.composer = other
+        
     def multiply_size(self, factor):
         for d in self.datasets:
             d.multiply_size(factor)
