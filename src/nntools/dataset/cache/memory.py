@@ -10,7 +10,6 @@ from nntools.dataset.cache.abstract_cache import AbstractCache
 class MemoryCache(AbstractCache):
     def __init__(self, dataset):
         super().__init__(dataset)
-        self.shms = []
         self.cache_with_shared_array = True
         self.cache_arrays = None
         self._is_first_process = False
