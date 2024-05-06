@@ -8,7 +8,6 @@ class AbstractCache:
     def __init__(self, dataset):
         self.d = dataset
         self.is_initialized = False
-        self.id = self.d.id
         self.shms = []
         self._num_workers = 12
         self._batch_size = 32
@@ -32,6 +31,11 @@ class AbstractCache:
     
     def init_non_shared_items_tracking(self):
         self.is_item_cached = np.zeros(self.nb_samples, dtype=bool)
+        
+    @property
+    def id(self):
+        return self.d.id
+    
     @abstractmethod
     def remap(self, old_key: str, new_key: str):
         pass
