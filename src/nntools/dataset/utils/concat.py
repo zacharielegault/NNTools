@@ -72,6 +72,11 @@ class ConcatDataset(torch.utils.data.ConcatDataset):
     def composer(self):
         return [d.composer for d in self.datasets]
 
+    @composer.setter
+    def composer(self, other):
+        for d in self.datasets:
+            d.composer = other
+        
     def multiply_size(self, factor):
         for d in self.datasets:
             d.multiply_size(factor)
@@ -82,9 +87,9 @@ class ConcatDataset(torch.utils.data.ConcatDataset):
 
     def __setattr__(self, key, value):
         if key == "post_init":
-            super(ConcatDataset, self).__setattr__(key, value)
+            super().__setattr__(key, value)
         if hasattr(self, key) or not self.post_init:
-            super(ConcatDataset, self).__setattr__(key, value)
+            super().__setattr__(key, value)
         else:
             for d in self.datasets:
                 d.__setattr__(key, value)
