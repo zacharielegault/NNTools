@@ -24,12 +24,12 @@ def convert_dict_to_plottable(dict_arrays):
 class Viewer:
     def __init__(self, dataset) -> None:
         self.d = dataset
-
+        self.cmap_name = 'jet_r'
     
     def plot(self, item: int, classes: Optional[List[str]] = None, fig_size: int = 1):
         arrays = self.d.__getitem__(item, return_indices=False)
         arrays = convert_dict_to_plottable(arrays)
-        plot_images(arrays, self.d.cmap_name, classes=classes, fig_size=fig_size)
+        plot_images(arrays, self.cmap_name, classes=classes, fig_size=fig_size)
 
     def get_mosaic(
         self,
@@ -94,7 +94,7 @@ class Viewer:
                         n_classes = np.max(v) + 1 if n_classes is None else n_classes
                         if n_classes == 1:
                             n_classes = 2
-                        cmap = plt.get_cmap(self.d.cmap_name, n_classes)
+                        cmap = plt.get_cmap(self.cmap_name, n_classes)
                         v = cmap(v)[:, :, :3]
                     if v.shape:
                         v = cv2.resize(v, resolution, cv2.INTER_NEAREST_EXACT)
@@ -128,7 +128,7 @@ class Viewer:
         mosaic = np.vstack(cols)
         if show:
             fig, ax = plt.subplots(1, 1)
-            ax.imshow(mosaic)
+            ax.imshow(mosaic, interpolation="nearest")
             fig.set_size_inches(fig_size * 5 * count_images * n_col, 5 * n_row * fig_size)
             plt.axis("off")
             plt.tight_layout()

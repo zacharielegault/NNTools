@@ -1,10 +1,12 @@
 import bisect
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, List, Optional, Tuple
 
 import torch
 
 if TYPE_CHECKING:
     from nntools.dataset.abstract_image_dataset import AbstractImageDataset
+
+from nntools.dataset.viewer import Viewer
 
 
 def concat_datasets_if_needed(datasets):
@@ -24,8 +26,9 @@ class ConcatDataset(torch.utils.data.ConcatDataset):
     def __init__(self, *args, **kwargs):
         self.post_init = False
         self.datasets: list[AbstractImageDataset]
-        super(ConcatDataset, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
         self.post_init = True
+        self.viewer = Viewer(self)
 
     def plot(self, idx, **kwargs):
         if idx < 0:
@@ -40,6 +43,19 @@ class ConcatDataset(torch.utils.data.ConcatDataset):
 
         self.datasets[dataset_idx].plot(sample_idx, **kwargs)
 
+    def get_mosaic(self, n_items: int = 9,
+        shuffle: bool = False,
+        indexes: Optional[List[int]] = None,
+        resolution: Tuple[int, int] = (512, 512),
+        show: bool = False,
+        fig_size: int = 1,
+        save: Optional[bool] = None,
+        add_labels: bool = False,
+        n_row: Optional[int] = None,
+        n_col: Optional[int] = None,
+        n_classes: Optional[int] = None):
+        return self.viewer.get_mosaic(n_items, shuffle, indexes, resolution, show, fig_size, save, add_labels, n_row, n_col, n_classes)
+    
     def get_class_count(self, load=True, save=True):
         class_count = None
         for d in self.datasets:
@@ -48,6 +64,9 @@ class ConcatDataset(torch.utils.data.ConcatDataset):
             else:
                 class_count += d.get_class_count(load=load, save=save)
         return class_count
+    
+    def __getitem__(self, idx, return_indices=False, return_tag=False):
+        return super().__getitem__(idx)
 
     @property
     def composer(self):
@@ -72,6 +91,6 @@ class ConcatDataset(torch.utils.data.ConcatDataset):
 
     def __getattr__(self, item):
         if item not in [
-            'init_cache', 'composer', 'get_class_count', 'multiply_size', 'datasets'
+            'init_cache', 'composer', 'get_class_count', 'multiply_size', 'datasets', 'get_mosaic', 'plot', 'viewer'
         ]:
             return [getattr(d, item) for d in self.datasets]

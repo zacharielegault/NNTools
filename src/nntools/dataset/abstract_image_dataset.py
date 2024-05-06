@@ -55,7 +55,6 @@ class AbstractImageDataset(Dataset, ABC):
             
     flag: AllowedImreadFlags = cv2.IMREAD_UNCHANGED
     return_indices: bool = False
-    cmap_name: str = "jet_r"
     multiplicative_size_factor: float = 1
     return_tag: bool = False
     id: str = ""
