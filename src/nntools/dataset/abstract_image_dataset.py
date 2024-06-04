@@ -188,7 +188,12 @@ class AbstractImageDataset(Dataset, ABC):
             return [os.path.basename(f) for f in filepaths]
         else:
             return os.path.basename(filepaths)
-
+    
+    def get_item_by_name(self, name: str, key: str = "image"):
+        filenames = self.filenames[key]
+        index = filenames.index(name)
+        return self.__getitem__(index)
+        
     def subset(self, indices: List[int]):
         for k, files in self.img_filepath.items():
             self.img_filepath[k] = files[indices]
