@@ -88,9 +88,7 @@ class ConcatDataset(torch.utils.data.ConcatDataset):
     def __setattr__(self, key, value):
         if key == "post_init":
             super().__setattr__(key, value)
-        if hasattr(self, key) or not self.post_init:
-            super().__setattr__(key, value)
-        else:
+        elif self.post_init:
             for d in self.datasets:
                 d.__setattr__(key, value)
 
