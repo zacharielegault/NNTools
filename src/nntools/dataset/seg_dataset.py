@@ -1,5 +1,5 @@
 import logging
-from typing import Callable, Optional, Union, Literal
+from typing import Callable, Literal, Optional, Union
 
 import cv2
 import numpy as np
@@ -36,8 +36,10 @@ class SegmentationDataset(AbstractImageDataset):
     def _use_masks_default(self):
         return self.mask_root is not None
 
-    filling_strategy: Literal[NNOpt.FILL_DOWNSAMPLE, NNOpt.FILL_UPSAMPLE] = field(default=NNOpt.FILL_DOWNSAMPLE, converter=NNOpt)
-                    
+    filling_strategy: Literal[NNOpt.FILL_DOWNSAMPLE, NNOpt.FILL_UPSAMPLE] = field(
+        default=NNOpt.FILL_DOWNSAMPLE, converter=NNOpt
+    )
+
     binarize_mask: bool = field(default=False)
     n_classes: Optional[int] = field(default=None)
 
@@ -123,27 +125,86 @@ class SegmentationDataset(AbstractImageDataset):
         actual_shape = inputs["image"].shape
         if self.use_masks:
             for k, file_list in self.gts.items():
-                filepath = file_list[item]
-                if filepath == NNOpt.MISSING_DATA_FLAG.value:
-                    mask = np.zeros(actual_shape[:-1], dtype=np.uint8)
-                else:
-                    mask = read_image(filepath, cv2.IMREAD_GRAYSCALE)
-                mask = self.resize_and_pad(mask, interpolation=cv2.INTER_NEAREST_EXACT)
-                if self.binarize_mask:
-                    inputs[k] = (mask > 0).astype(np.uint8)
-                else:
-                    inputs[k] = mask.astype(np.uint8)
-
+                inputs[k] = self.load_mask(item, k, actual_shape[:-1])
         return inputs
 
-    def get_mask(self, item: int):
-        filepath = self.gts[item]
-        mask = read_image(filepath, cv2.IMREAD_GRAYSCALE)
-        if self.auto_resize:
-            mask = resize(image=mask, shape=self.shape, keep_size_ratio=self.keep_size_ratio, flag=cv2.INTER_NEAREST)
+    def get_mask(self, item: int, key: str = "mask"):
+        mask = self.load_mask(
+            item,
+            key,
+        )
         if self.composer:
             mask = self.composer(mask=mask)
         if self.return_indices:
             return mask, item
         else:
             return mask
+
+    def load_mask(self, item: int, key: str = "mask", expected_shape: Optional[tuple[int, int]] = None):
+        if expected_shape is None:
+            expected_shape = self.shape
+        filepath = self.gts[key][item]
+        if filepath == NNOpt.MISSING_DATA_FLAG.value:
+            mask = np.zeros(expected_shape, dtype=np.uint8)
+        else:
+            mask = read_image(filepath, cv2.IMREAD_GRAYSCALE)
+
+        mask = self.resize_and_pad(mask, interpolation=cv2.INTER_NEAREST_EXACT)
+
+        if self.binarize_mask:
+            mask = (mask > 0).astype(np.uint8)
+        else:
+            mask = mask.astype(np.uint8)
+        return mask
+
+
+@define
+class SegmentationDatasetWithColorMask(SegmentationDataset):
+    color_interpretation: dict[tuple[int, int, int], int] = field(default=None)
+    method: Literal["OR", "INDEXING", "WHERE", "VECTORIALIZE"] = field(default="INDEXING")
+    # This was implemented for test purposes, to compare speed
+
+    def load_mask(self, item: int, key: str = "mask", expected_shape: Optional[tuple[int, int]] = None):
+        filepath = self.gts[key][item]
+        if filepath == NNOpt.MISSING_DATA_FLAG.value:
+            mask = np.zeros(expected_shape, dtype=np.uint8)
+        else:
+            mask = read_image(filepath, cv2.IMREAD_UNCHANGED)
+
+        if mask.ndim == 3:
+            mask = self.map_color_to_class(mask, self.color_interpretation)
+
+        mask = self.resize_and_pad(mask, interpolation=cv2.INTER_NEAREST_EXACT)
+
+        if self.binarize_mask:
+            mask = (mask > 0).astype(np.uint8)
+        else:
+            mask = mask.astype(np.uint8)
+
+        return mask
+
+    def map_color_to_class(self, mask: np.ndarray, color: tuple[int, int, int]) -> int:
+        # mask as dimensions HxWxC
+
+        if self.color_interpretation is None:
+            raise ValueError("Color interpretation is not defined")
+
+        colors = np.asarray(list(self.color_interpretation.keys()))
+        colors_id = np.asarray(list(self.color_interpretation.values()))
+
+        result = np.zeros(mask.shape[:2], dtype=np.uint8)
+        if self.method == "VECTORIALIZE":
+            R, C, D = np.where((mask == colors[:, None, None, :]).all(3))
+            result[C, D] = colors_id[R]
+            return result
+
+        for color, class_id in zip(colors, colors_id):
+            _ma = (mask == color).all(axis=2)
+            if self.method == "OR":
+                result = result * (~_ma) + class_id * (_ma)
+            elif self.method == "INDEXING":
+                result[_ma] = class_id
+            elif self.method == "WHERE":
+                result = np.where(_ma, class_id, result)
+
+        return result

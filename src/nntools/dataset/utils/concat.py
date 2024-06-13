@@ -27,8 +27,8 @@ class ConcatDataset(torch.utils.data.ConcatDataset):
         self.post_init = False
         self.datasets: list[AbstractImageDataset]
         super().__init__(*args, **kwargs)
-        self.post_init = True
         self.viewer = Viewer(self)
+        self.post_init = True
 
     def plot(self, idx, **kwargs):
         if idx < 0:
@@ -43,7 +43,9 @@ class ConcatDataset(torch.utils.data.ConcatDataset):
 
         self.datasets[dataset_idx].plot(sample_idx, **kwargs)
 
-    def get_mosaic(self, n_items: int = 9,
+    def get_mosaic(
+        self,
+        n_items: int = 9,
         shuffle: bool = False,
         indexes: Optional[List[int]] = None,
         resolution: Tuple[int, int] = (512, 512),
@@ -53,9 +55,12 @@ class ConcatDataset(torch.utils.data.ConcatDataset):
         add_labels: bool = False,
         n_row: Optional[int] = None,
         n_col: Optional[int] = None,
-        n_classes: Optional[int] = None):
-        return self.viewer.get_mosaic(n_items, shuffle, indexes, resolution, show, fig_size, save, add_labels, n_row, n_col, n_classes)
-    
+        n_classes: Optional[int] = None,
+    ):
+        return self.viewer.get_mosaic(
+            n_items, shuffle, indexes, resolution, show, fig_size, save, add_labels, n_row, n_col, n_classes
+        )
+
     def get_class_count(self, load=True, save=True):
         class_count = None
         for d in self.datasets:
@@ -64,7 +69,7 @@ class ConcatDataset(torch.utils.data.ConcatDataset):
             else:
                 class_count += d.get_class_count(load=load, save=save)
         return class_count
-    
+
     def __getitem__(self, idx, return_indices=False, return_tag=False):
         return super().__getitem__(idx)
 
@@ -76,14 +81,14 @@ class ConcatDataset(torch.utils.data.ConcatDataset):
     def composer(self, other):
         for d in self.datasets:
             d.composer = other
-        
+
     def multiply_size(self, factor):
         for d in self.datasets:
             d.multiply_size(factor)
 
     def init_cache(self):
         for d in self.datasets:
-            d.init_cache()
+            d.cache.init_cache()
 
     def __setattr__(self, key, value):
         if key == "post_init":
@@ -96,6 +101,13 @@ class ConcatDataset(torch.utils.data.ConcatDataset):
 
     def __getattr__(self, item):
         if item not in [
-            'init_cache', 'composer', 'get_class_count', 'multiply_size', 'datasets', 'get_mosaic', 'plot', 'viewer'
+            "init_cache",
+            "composer",
+            "get_class_count",
+            "multiply_size",
+            "datasets",
+            "get_mosaic",
+            "plot",
+            "viewer",
         ]:
             return [getattr(d, item) for d in self.datasets]
